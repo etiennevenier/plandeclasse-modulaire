@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Plan de classe modulaire</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #f8fafc; color: #1e293b; font-family: system-ui, -apple-system, sans-serif; }
+    .seat {
+      min-height: 90px; border: 2px solid #cbd5e1; border-radius: 12px;
+      background: white; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; padding: 6px; text-align: center; position: relative; cursor: pointer; transition: all 0.15s ease;
+      user-select: none; overflow: hidden;
+    }
+    .seat:hover { border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    .seat.dragging { opacity: 0.4; border-style: dashed; }
+    .seat.drag-over { border-color: #2563eb; background: #eff6ff !important; }
+    .seat-name { font-size: 0.75rem; font-weight: 600; line-height: 1.1; word-break: break-word; }
+    .seat.empty .seat-name { color: #94a3b8; font-weight: 400; }
+    .seat.disabled { background: #f1f5f9; border-color: #cbd5e1; border-style: dashed; cursor: pointer; min-height: 90px; }
+    .seat.disabled:hover { border-color: #3b82f6; background: #e2e8f0; }
+    .seat-number { position: absolute; top: 3px; left: 5px; font-size: 8px; color: #94a3b8; font-weight: bold; }
+    .seat-actions { position: absolute; top: 2px; right: 4px; font-size: 10px; color: #94a3b8; display: none; }
+    .seat:hover .seat-actions { display: block; }
+    .student-photo { width: 30px; height: 30px; border-radius: 9999px; object-fit: cover; border: 1px solid #cbd5e1; background: #e2e8f0; }
+
+    @media print {
+      /* ===== V2 : le plan occupe toute la hauteur de la page A4 paysage, sans déborder en largeur ===== */
+      @page { size: A4 landscape; margin: 8mm; }
+      html { height: auto !important; }
+      body {
+        background: white !important; font-size: 10px;
+        /* Zone imprimable : 210mm - 2x8mm de marge = 194mm (192mm par sécurité pour éviter une 2e page) */
+        display: flex !important; flex-direction: column;
+        width: 100% !important; max-width: none !important;
+        height: 192mm !important;
+        margin: 0 !important; padding: 0 !important;
+        box-sizing: border-box;
+      }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; flex: none; }
+      
+      .row-label, .col-controls, .disabled-text { display: none !important; }
+      
+      #gridContainer > div {
+        grid-template-columns: var(--print-cols) !important;
+        flex: 1 1 auto;          /* la grille s'étire sur toute la hauteur disponible */
+        grid-auto-rows: 1fr;     /* toutes les rangées se partagent la hauteur à parts égales */
+        gap: 6px !important;
+        width: 100%; min-height: 0; box-sizing: border-box;
+      }
+      
+      .overflow-x-auto {
+        overflow: visible !important; width: 100% !important; padding: 0 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important;
+        margin: 6px 0 !important; box-sizing: border-box;
+        flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+      }
+      #gridContainer { width: 100% !important; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+      #boardContainer, #boardContainerBottom { flex: none; }
+      
+      .seat { border: 1px solid #334155 !important; min-height: 55px; min-width: 0; padding: 3px; break-inside: avoid; page-break-inside: avoid; }
+      .seat.disabled { border: none !important; background: transparent !important; min-height: 30px; }
+      .seat-name { font-size: 11px; }
+      .student-photo { width: 26px; height: 26px; }
+      
+      .board-element { background: #334155 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 6px !important; }
+      #boardTop.print-show { margin-bottom: 10px !important; margin-top: 0 !important; }
+      #boardBottom.print-show { margin-top: 10px !important; margin-bottom: 0 !important; }
+    }
+    .print-only { display: none; }
+  </style>
+</head>
+<body class="p-4 sm:p-6 max-w-7xl mx-auto">
+
+  <!-- En-tête / Contrôles globaux -->
+  <header class="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 no-print">
+    <div>
+      <h1 class="text-xl font-extrabold text-slate-800">Plan de classe modulaire</h1>
+      <div class="flex items-center gap-3 mt-1">
+        <p id="syncStatus" class="text-xs text-indigo-600 font-semibold">Connexion au cloud...</p>
+        <span class="text-slate-300">|</span>
+        <p id="lastAuthorInfo" class="text-xs text-slate-500 font-medium">Dernière modif : -</p>
+      </div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <input id="classNameInput" type="text" value="Classe de 4ème" class="border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:border-blue-500">
+      <button id="toggleViewBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-sm transition">🔄 Inverser la vue</button>
+      <button id="editModeBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition">Mode Édition : Actif</button>
+      <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition">🖨️ Imprimer</button>
+    </div>
+  </header>
+
+  <!-- Titre version imprimée -->
+  <div class="print-only text-center mb-3">
+    <h2 id="printTitle" class="text-lg font-extrabold uppercase tracking-wide">Classe de 4ème</h2>
+  </div>
+
+  <!-- Emplacement du Tableau -->
+  <div id="boardContainer"></div>
+
+  <!-- Grille de la classe dynamique -->
+  <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto my-4">
+    <div id="gridContainer">
+      <!-- Généré par JavaScript -->
+    </div>
+  </div>
+
+  <!-- Emplacement bas du Tableau -->
+  <div id="boardContainerBottom"></div>
+
+  <footer class="mt-4 text-center text-xs text-slate-400 no-print">
+    Synchronisation Cloud active en temps réel entre appareils. Impression optimisée pour format A4 Paysage.
+  </footer>
+
+  <!-- Script Firebase et logique applicative -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAqN-dZCLgQrerJONGw4bFcA6crJsLBOlo",
+      authDomain: "plan-classe-college.firebaseapp.com",
+      projectId: "plan-classe-college",
+      storageBucket: "plan-classe-college.firebasestorage.app",
+      messagingSenderId: "903323821070",
+      appId: "1:903323821070:web:f2269972c1066b9eaac85f",
+      measurementId: "G-1R2HR5DPKY"
+    };
+
+    let app, db, docRef;
+    try {
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      docRef = doc(db, "classes", "plan_principal");
+    } catch (e) {
+      console.error("Erreur d'init Firebase :", e);
+    }
+
+    // Gestion du nom du professeur (mémorisé dans le navigateur)
+    let currentTeacher = localStorage.getItem("plan_classe_teacher");
+    while (!currentTeacher || currentTeacher.trim() === "") {
+      currentTeacher = prompt("Veuillez entrer votre Nom et Prénom pour identifier vos modifications sur le plan :");
+      if (currentTeacher) {
+        currentTeacher = currentTeacher.trim();
+        localStorage.setItem("plan_classe_teacher", currentTeacher);
+      }
+    }
+
+    let isEditing = true;
+    let isViewInverted = true;
+    let className = "Classe de 4ème";
+    let isRemoteUpdate = false;
+
+    let layoutData = [
+      ["", "", "__DISABLED__", "", "", ""],
+      ["", "", "__DISABLED__", "", "", ""],
+      ["", "", "__DISABLED__", "", "", ""],
+      ["", "", "__DISABLED__", "", "", ""],
+      ["", "", "__DISABLED__", "", "", ""]
+    ];
+
+    const editBtn = document.getElementById("editModeBtn");
+    const toggleViewBtn = document.getElementById("toggleViewBtn");
+    const nameInput = document.getElementById("classNameInput");
+    const printTitle = document.getElementById("printTitle");
+    const gridContainer = document.getElementById("gridContainer");
+    const boardContainer = document.getElementById("boardContainer");
+    const boardContainerBottom = document.getElementById("boardContainerBottom");
+    const syncStatus = document.getElementById("syncStatus");
+    const lastAuthorInfo = document.getElementById("lastAuthorInfo");
+
+    render();
+
+    nameInput.addEventListener("input", (e) => {
+      className = e.target.value;
+      printTitle.textContent = className;
+      saveToCloud();
+    });
+
+    editBtn.addEventListener("click", () => {
+      isEditing = !isEditing;
+      editBtn.textContent = isEditing ? "Mode Édition : Actif" : "Mode Consultation";
+      editBtn.className = isEditing 
+        ? "bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition" 
+        : "bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition";
+      render();
+    });
+
+    toggleViewBtn.addEventListener("click", () => {
+      isViewInverted = !isViewInverted;
+      render();
+    });
+
+    async function saveToCloud() {
+      if (isRemoteUpdate || !docRef) return;
+      try {
+        syncStatus.textContent = "Synchronisation...";
+        const now = new Date().toISOString();
+        await setDoc(docRef, {
+          layoutJson: JSON.stringify(layoutData),
+          className: className,
+          lastTeacher: currentTeacher,
+          updatedAt: now
+        });
+        syncStatus.textContent = "☁️ Synchronisé";
+        lastAuthorInfo.textContent = `Modifié par ${currentTeacher} (à l'instant)`;
+      } catch (error) {
+        console.error("Erreur de sauvegarde :", error);
+        syncStatus.textContent = "⚠️ Erreur cloud";
+      }
+    }
+
+    if (docRef) {
+      onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          isRemoteUpdate = true;
+          if (data.layoutJson) {
+            try {
+              let parsed = JSON.parse(data.layoutJson);
+              layoutData = parsed.map(row => row.map(cell => {
+                if (typeof cell === 'string') return cell;
+                return cell;
+              }));
+            } catch (err) {
+              console.error("Erreur parsing JSON layout", err);
+            }
+          }
+          if (data.className) {
+            className = data.className;
+            nameInput.value = className;
+            printTitle.textContent = className;
+          }
+          if (data.lastTeacher && data.updatedAt) {
+            const dateObj = new Date(data.updatedAt);
+            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = dateObj.toLocaleDateString();
+            lastAuthorInfo.textContent = `Dernière modif : ${data.lastTeacher} le ${dateStr} à ${timeStr}`;
+          }
+          render();
+          isRemoteUpdate = false;
+          syncStatus.textContent = "☁️ À jour (Temps réel)";
+        } else {
+          saveToCloud();
+        }
+      }, (error) => {
+        console.error("Erreur snapshot :", error);
+        syncStatus.textContent = "⚠️ Mode local (Erreur réseau)";
+      });
+    }
+
+    function addRow(index) {
+      const colCount = layoutData[0] ? layoutData[0].length : 6;
+      layoutData.splice(index + 1, 0, Array(colCount).fill(""));
+      render();
+      saveToCloud();
+    }
+
+    function deleteRow(index) {
+      if (layoutData.length > 1) {
+        layoutData.splice(index, 1);
+        render();
+        saveToCloud();
+      }
+    }
+
+    function addCol(index) {
+      layoutData.forEach(row => row.splice(index + 1, 0, ""));
+      render();
+      saveToCloud();
+    }
+
+    function deleteCol(index) {
+      if (layoutData[0].length > 1) {
+        layoutData.forEach(row => row.splice(index, 1));
+        render();
+        saveToCloud();
+      }
+    }
+
+    function getCellData(cell) {
+      if (cell === "__DISABLED__") return { disabled: true };
+      if (typeof cell === "object" && cell !== null) return { name: cell.name || "", photo: cell.photo || "" };
+      return { name: cell || "", photo: "" };
+    }
+
+    function render() {
+      if (!gridContainer) return;
+      gridContainer.innerHTML = "";
+      
+      boardContainer.innerHTML = "";
+      boardContainerBottom.innerHTML = "";
+
+      const boardHtml = `<div id="board-${isViewInverted ? 'bottom' : 'top'}" class="board-element print-show bg-slate-800 text-white text-center py-2 rounded-xl text-xs font-bold uppercase tracking-widest shadow-sm">Tableau / Bureau du professeur</div>`;
+
+      if (isViewInverted) {
+        boardContainerBottom.innerHTML = boardHtml;
+      } else {
+        boardContainer.innerHTML = boardHtml;
+      }
+
+      const colCount = layoutData[0] && layoutData[0].length ? layoutData[0].length : 6;
+      
+      let colTemplates = [];
+      for (let c = 0; c < colCount; c++) {
+        let isAllDisabled = true;
+        for (let r = 0; r < layoutData.length; r++) {
+          if (layoutData[r][c] !== "__DISABLED__") {
+            isAllDisabled = false;
+            break;
+          }
+        }
+        if (isAllDisabled) {
+          colTemplates.push("35px");
+        } else {
+          colTemplates.push("minmax(90px, 1fr)");
+        }
+      }
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "grid gap-2";
+      wrapper.style.gridTemplateColumns = `35px ${colTemplates.join(" ")}`;
+      wrapper.style.setProperty('--print-cols', colTemplates.join(" "));
+
+      let rowIndices = layoutData.map((_, index) => index);
+      if (isViewInverted) {
+        rowIndices.reverse();
+      }
+
+      if (isEditing) {
+        const corner = document.createElement("div");
+        corner.className = "col-controls";
+        wrapper.appendChild(corner);
+
+        for (let c = 0; c < colCount; c++) {
+          const colControl = document.createElement("div");
+          colControl.className = "col-controls flex items-center justify-center gap-0.5 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs";
+          colControl.innerHTML = `
+            <button type="button" title="Ajouter à gauche" class="add-col-left text-blue-600 hover:bg-blue-100 px-1 rounded font-bold">+</button>
+            <button type="button" title="Supprimer colonne" class="del-col text-red-500 hover:bg-red-100 px-1 rounded font-bold">×</button>
+            <button type="button" title="Ajouter à droite" class="add-col-right text-blue-600 hover:bg-blue-100 px-1 rounded font-bold">+</button>
+          `;
+          
+          colControl.querySelector(".add-col-left").addEventListener("click", () => addCol(c - 1));
+          colControl.querySelector(".add-col-right").addEventListener("click", () => addCol(c));
+          colControl.querySelector(".del-col").addEventListener("click", () => {
+            if (confirm(`Supprimer entièrement la colonne ${c + 1} ?`)) deleteCol(c);
+          });
+
+          wrapper.appendChild(colControl);
+        }
+      }
+
+      rowIndices.forEach(r => {
+        const row = layoutData[r] || [];
+
+        if (isEditing) {
+          const rowControl = document.createElement("div");
+          rowControl.className = "row-label flex flex-col items-center justify-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-600";
+          rowControl.innerHTML = `
+            <span>R${r+1}</span>
+            <button type="button" title="Supprimer ligne" class="del-row text-red-500 hover:bg-red-100 px-1 rounded">×</button>
+            <button type="button" title="Ajouter ligne" class="add-row text-blue-600 hover:bg-blue-100 px-1 rounded">+</button>
+          `;
+          rowControl.querySelector(".del-row").addEventListener("click", () => deleteRow(r));
+          rowControl.querySelector(".add-row").addEventListener("click", () => addRow(r));
+          wrapper.appendChild(rowControl);
+        } else {
+          const rowLabel = document.createElement("div");
+          rowLabel.className = "row-label flex items-center justify-center font-bold text-xs text-slate-400";
+          rowLabel.textContent = `R${r+1}`;
+          wrapper.appendChild(rowLabel);
+        }
+
+        row.forEach((cell, c) => {
+          const seat = document.createElement("div");
+          const cellData = getCellData(cell);
+          const isDisabled = cell === "__DISABLED__";
+          const hasStudent = cellData.name && cellData.name.trim() !== "";
+          
+          seat.className = `seat ${isDisabled ? 'disabled' : (hasStudent ? '' : 'empty')}`;
+          
+          if (isDisabled) {
+            seat.innerHTML = `
+              <span class="seat-number">${r + 1}.${c + 1}</span>
+              <span class="disabled-text text-xs text-slate-400 font-medium">Désactivé</span>
+              <span class="seat-actions" title="Réactiver ce bureau">✅</span>
+            `;
+          } else {
+            let photoHtml = cellData.photo 
+              ? `<img src="${cellData.photo}" class="student-photo" alt="Photo">` 
+              : `<div class="student-photo flex items-center justify-center text-[10px] text-slate-400 font-bold">👤</div>`;
+
+            seat.innerHTML = `
+              <span class="seat-number">${r + 1}.${c + 1}</span>
+              <span class="seat-actions" title="Désactiver ce bureau">⚙️</span>
+              ${photoHtml}
+              <span class="seat-name">${cellData.name || 'Place libre'}</span>
+            `;
+          }
+
+          if (isEditing) {
+            const actionBtn = seat.querySelector(".seat-actions");
+            if (actionBtn) {
+              actionBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                layoutData[r][c] = isDisabled ? "" : "__DISABLED__";
+                render();
+                saveToCloud();
+              });
+            }
+
+            if (isDisabled) {
+              seat.addEventListener("click", () => {
+                layoutData[r][c] = "";
+                render();
+                saveToCloud();
+              });
+            } else {
+              seat.setAttribute("draggable", "true");
+
+              seat.addEventListener("dragstart", (e) => {
+                e.dataTransfer.setData("text/plain", JSON.stringify({ r, c }));
+                seat.classList.add("dragging");
+              });
+
+              seat.addEventListener("dragend", () => {
+                seat.classList.remove("dragging");
+              });
+
+              seat.addEventListener("click", () => {
+                const actionChoice = prompt(
+                  `Gestion de la place (${r+1}.${c+1})\n\n1. Entrez le nom/prénom de l'élève\n2. Tapez 'PHOTO' pour modifier l'URL de sa photo`, 
+                  cellData.name
+                );
+
+                if (actionChoice === null) return;
+
+                if (actionChoice.trim() === "PHOTO") {
+                  const photoUrl = prompt("Collez l'URL de la photo de l'élève (ou laissez vide pour supprimer) :", cellData.photo);
+                  if (photoUrl !== null) {
+                    layoutData[r][c] = { name: cellData.name, photo: photoUrl.trim() };
+                    render();
+                    saveToCloud();
+                  }
+                } else {
+                  layoutData[r][c] = { name: actionChoice.trim(), photo: cellData.photo };
+                  render();
+                  saveToCloud();
+                }
+              });
+            }
+
+            seat.addEventListener("dragover", (e) => {
+              e.preventDefault();
+              if (!isDisabled) seat.classList.add("drag-over");
+            });
+
+            seat.addEventListener("dragleave", () => {
+              seat.classList.remove("drag-over");
+            });
+
+            seat.addEventListener("drop", (e) => {
+              e.preventDefault();
+              seat.classList.remove("drag-over");
+              
+              if (layoutData[r][c] === "__DISABLED__") return;
+
+              const sourceData = JSON.parse(e.dataTransfer.getData("text/plain"));
+              
+              const temp = layoutData[r][c];
+              layoutData[r][c] = layoutData[sourceData.r][sourceData.c];
+              layoutData[sourceData.r][sourceData.c] = temp;
+
+              render();
+              saveToCloud();
+            });
+          }
+
+          wrapper.appendChild(seat);
+        });
+      });
+
+      gridContainer.appendChild(wrapper);
+    }
+  </script>
+</body>
+</html>
