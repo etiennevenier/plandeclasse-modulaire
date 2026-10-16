@@ -1,489 +1,473 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Plan de classe modulaire</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { background: #f8fafc; color: #1e293b; font-family: system-ui, -apple-system, sans-serif; }
-    .seat {
-      min-height: 90px; border: 2px solid #cbd5e1; border-radius: 12px;
-      background: white; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 3px; padding: 6px; text-align: center; position: relative; cursor: pointer; transition: all 0.15s ease;
-      user-select: none; overflow: hidden;
-    }
-    .seat:hover { border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-    .seat.dragging { opacity: 0.4; border-style: dashed; }
-    .seat.drag-over { border-color: #2563eb; background: #eff6ff !important; }
-    .seat-name { font-size: 0.75rem; font-weight: 600; line-height: 1.1; word-break: break-word; }
-    .seat.empty .seat-name { color: #94a3b8; font-weight: 400; }
-    .seat.disabled { background: #f1f5f9; border-color: #cbd5e1; border-style: dashed; cursor: pointer; min-height: 90px; }
-    .seat.disabled:hover { border-color: #3b82f6; background: #e2e8f0; }
-    .seat-number { position: absolute; top: 3px; left: 5px; font-size: 8px; color: #94a3b8; font-weight: bold; }
-    .seat-actions { position: absolute; top: 2px; right: 4px; font-size: 10px; color: #94a3b8; display: none; }
-    .seat:hover .seat-actions { display: block; }
-    .student-photo { width: 30px; height: 30px; border-radius: 9999px; object-fit: cover; border: 1px solid #cbd5e1; background: #e2e8f0; }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plan de classe modulaire</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background:#f8fafc; color:#1e293b; font-family:system-ui,-apple-system,sans-serif; }
+  .seat { min-height:90px; border:2px solid #cbd5e1; border-radius:12px; background:white; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:6px; text-align:center; position:relative; transition:all .15s ease; user-select:none; overflow:hidden; cursor:default; }
+  body.editing .seat { cursor:pointer; }
+  body.editing .seat:hover { border-color:#3b82f6; box-shadow:0 4px 6px -1px rgb(0 0 0/.1); }
+  .seat.dragging { opacity:.4; border-style:dashed; }
+  .seat.drag-over { border-color:#2563eb; background:#eff6ff !important; }
+  .seat-name { font-size:.75rem; font-weight:600; line-height:1.1; word-break:break-word; }
+  .seat.empty .seat-name { color:#94a3b8; font-weight:400; }
+  .seat.disabled { background:#f1f5f9; border-style:dashed; }
+  body.editing .seat.disabled:hover { background:#e2e8f0; }
+  .seat-number { position:absolute; top:3px; left:5px; font-size:8px; color:#94a3b8; font-weight:bold; }
+  .seat-actions { position:absolute; top:2px; right:4px; font-size:10px; display:none; }
+  body.editing .seat:hover .seat-actions { display:block; }
+  .student-photo { width:30px; height:30px; border-radius:9999px; object-fit:cover; border:1px solid #cbd5e1; background:#e2e8f0; }
 
-    @media print {
-      /* ===== V2 : le plan occupe toute la hauteur de la page A4 paysage, sans déborder en largeur ===== */
-      @page { size: A4 landscape; margin: 8mm; }
-      html { height: auto !important; }
-      body {
-        background: white !important; font-size: 10px;
-        /* Zone imprimable : 210mm - 2x8mm de marge = 194mm (192mm par sécurité pour éviter une 2e page) */
-        display: flex !important; flex-direction: column;
-        width: 100% !important; max-width: none !important;
-        height: 192mm !important;
-        margin: 0 !important; padding: 0 !important;
-        box-sizing: border-box;
-      }
-      .no-print { display: none !important; }
-      .print-only { display: block !important; flex: none; }
-      
-      .row-label, .col-controls, .disabled-text { display: none !important; }
-      
-      #gridContainer > div {
-        grid-template-columns: var(--print-cols) !important;
-        flex: 1 1 auto;          /* la grille s'étire sur toute la hauteur disponible */
-        grid-auto-rows: 1fr;     /* toutes les rangées se partagent la hauteur à parts égales */
-        gap: 6px !important;
-        width: 100%; min-height: 0; box-sizing: border-box;
-      }
-      
-      .overflow-x-auto {
-        overflow: visible !important; width: 100% !important; padding: 0 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important;
-        margin: 6px 0 !important; box-sizing: border-box;
-        flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
-      }
-      #gridContainer { width: 100% !important; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-      #boardContainer, #boardContainerBottom { flex: none; }
-      
-      .seat { border: 1px solid #334155 !important; min-height: 55px; min-width: 0; padding: 3px; break-inside: avoid; page-break-inside: avoid; }
-      .seat.disabled { border: none !important; background: transparent !important; min-height: 30px; }
-      .seat-name { font-size: 11px; }
-      .student-photo { width: 26px; height: 26px; }
-      
-      .board-element { background: #334155 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 6px !important; }
-      #boardTop.print-show { margin-bottom: 10px !important; margin-top: 0 !important; }
-      #boardBottom.print-show { margin-top: 10px !important; margin-bottom: 0 !important; }
-    }
-    .print-only { display: none; }
-  </style>
+  @media print {
+    @page { size:A4 landscape; margin:8mm; }
+    html { height:auto !important; }
+    body { background:white !important; font-size:10px; display:flex !important; flex-direction:column; width:100% !important; max-width:none !important; height:192mm !important; margin:0 !important; padding:0 !important; box-sizing:border-box; }
+    .no-print { display:none !important; }
+    .print-only { display:block !important; flex:none; }
+    .row-label, .col-controls, .disabled-text { display:none !important; }
+    #gridContainer > div { grid-template-columns:var(--print-cols) !important; flex:1 1 auto; grid-auto-rows:1fr; gap:6px !important; width:100%; min-height:0; box-sizing:border-box; }
+    .overflow-x-auto { overflow:visible !important; width:100% !important; padding:0 !important; border:none !important; box-shadow:none !important; border-radius:0 !important; margin:6px 0 !important; box-sizing:border-box; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+    #gridContainer { width:100% !important; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+    #boardContainer, #boardContainerBottom { flex:none; }
+    .seat { border:1px solid #334155 !important; min-height:55px; min-width:0; padding:3px; break-inside:avoid; page-break-inside:avoid; }
+    .seat.disabled { border:none !important; background:transparent !important; min-height:30px; }
+    .seat-name { font-size:11px; }
+    .student-photo { width:26px; height:26px; }
+    .board-element { background:#334155 !important; color:white !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; padding:6px !important; }
+    #boardTop.print-show { margin-bottom:10px !important; margin-top:0 !important; }
+    #boardBottom.print-show { margin-top:10px !important; margin-bottom:0 !important; }
+  }
+  .print-only { display:none; }
+</style>
 </head>
 <body class="p-4 sm:p-6 max-w-7xl mx-auto">
 
-  <!-- En-tête / Contrôles globaux -->
-  <header class="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 no-print">
-    <div>
-      <h1 class="text-xl font-extrabold text-slate-800">Plan de classe modulaire</h1>
-      <div class="flex items-center gap-3 mt-1">
-        <p id="syncStatus" class="text-xs text-indigo-600 font-semibold">Connexion au cloud...</p>
-        <span class="text-slate-300">|</span>
-        <p id="lastAuthorInfo" class="text-xs text-slate-500 font-medium">Dernière modif : -</p>
-      </div>
+<header class="mb-6 flex flex-col lg:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 no-print">
+  <div>
+    <h1 class="text-xl font-extrabold text-slate-800">Plan de classe modulaire</h1>
+    <div class="flex flex-wrap items-center gap-x-3 mt-1">
+      <p id="syncStatus" class="text-xs text-indigo-600 font-semibold">Connexion au cloud...</p>
+      <span class="text-slate-300">|</span>
+      <p id="lastAuthorInfo" class="text-xs text-slate-500 font-medium">Dernière modif : -</p>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <input id="classNameInput" type="text" value="Classe de 4ème" class="border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:border-blue-500">
+  </div>
+  <div class="flex flex-col items-center lg:items-end gap-2">
+    <div class="flex flex-wrap items-center justify-center gap-2">
+      <select id="classSelect" class="border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold bg-white outline-none focus:border-blue-500"></select>
+      <input id="classNameInput" type="text" maxlength="60" placeholder="Nom de la classe" class="hidden border border-amber-300 bg-amber-50 rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:border-amber-500">
       <button id="toggleViewBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-sm transition">🔄 Inverser la vue</button>
-      <button id="editModeBtn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition">Mode Édition : Actif</button>
       <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition">🖨️ Imprimer</button>
     </div>
-  </header>
-
-  <!-- Titre version imprimée -->
-  <div class="print-only text-center mb-3">
-    <h2 id="printTitle" class="text-lg font-extrabold uppercase tracking-wide">Classe de 4ème</h2>
+    <div class="flex flex-wrap items-center justify-center gap-2">
+      <span id="modeBadge" class="px-3 py-2 rounded-lg text-sm font-bold border"></span>
+      <button id="editModeBtn" class="px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition disabled:opacity-40"></button>
+    </div>
+    <button id="teacherBtn" class="text-xs text-slate-500 hover:text-slate-800 underline"></button>
   </div>
+</header>
 
-  <!-- Emplacement du Tableau -->
-  <div id="boardContainer"></div>
+<div class="print-only text-center mb-3"><h2 id="printTitle" class="text-lg font-extrabold uppercase tracking-wide"></h2></div>
+<div id="boardContainer"></div>
+<div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto my-4"><div id="gridContainer"></div></div>
+<div id="boardContainerBottom"></div>
+<footer class="mt-4 text-center text-xs text-slate-400 no-print">Synchronisation Cloud en temps réel. Impression optimisée pour format A4 Paysage.</footer>
 
-  <!-- Grille de la classe dynamique -->
-  <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto my-4">
-    <div id="gridContainer">
-      <!-- Généré par JavaScript -->
+<div id="toast" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] bg-slate-800 text-white text-sm px-4 py-2 rounded-xl shadow-lg no-print"></div>
+
+<!-- Modale élève -->
+<div id="studentModal" class="modal hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/50 p-4 no-print">
+  <form id="studentForm" class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+    <div class="flex justify-between items-start">
+      <div><h2 class="text-lg font-extrabold">✏️ Modifier la place</h2><p id="seatLabel" class="text-xs text-slate-500"></p></div>
+      <button type="button" data-cancel class="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+    </div>
+    <p id="disabledNotice" class="hidden text-sm bg-slate-100 border border-slate-200 rounded-lg p-3 text-slate-600">Ce bureau est désactivé (il n'apparaît pas comme une place utilisable).</p>
+    <div id="studentFields" class="space-y-3">
+      <label class="block text-sm font-semibold">Nom et prénom
+        <input id="studentName" type="text" maxlength="60" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-normal outline-none focus:border-blue-500">
+      </label>
+      <label class="block text-sm font-semibold">URL de la photo
+        <input id="studentPhoto" type="text" inputmode="url" placeholder="https://..." class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-normal outline-none focus:border-blue-500">
+      </label>
+      <p id="photoError" class="hidden text-xs text-red-600">L'URL de la photo doit commencer par http:// ou https://</p>
+    </div>
+    <div class="flex flex-col gap-2 border-t border-slate-200 pt-4">
+      <button type="button" id="toggleDeskBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg text-sm font-bold"></button>
+      <button type="button" id="clearBtn" class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-bold">🗑️ Effacer l'élève de cette place</button>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button type="button" data-cancel class="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100">Annuler</button>
+      <button type="submit" id="studentSaveBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold">Enregistrer</button>
+    </div>
+  </form>
+</div>
+
+<!-- Modale texte (nom du professeur / nouvelle classe) -->
+<div id="textModal" class="modal hidden fixed inset-0 z-[55] items-center justify-center bg-slate-900/50 p-4 no-print">
+  <form id="textForm" class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+    <h2 id="textTitle" class="text-lg font-extrabold"></h2>
+    <label class="block text-sm font-semibold"><span id="textLabel"></span>
+      <input id="textInput" type="text" maxlength="60" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-normal outline-none focus:border-blue-500">
+    </label>
+    <p id="textError" class="hidden text-xs text-red-600"></p>
+    <div class="flex justify-end gap-2">
+      <button type="button" data-cancel class="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100">Annuler</button>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold">Valider</button>
+    </div>
+  </form>
+</div>
+
+<!-- Modale de confirmation -->
+<div id="confirmModal" class="modal hidden fixed inset-0 z-[60] items-center justify-center bg-slate-900/50 p-4 no-print">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+    <h2 class="text-lg font-extrabold">⚠️ Confirmation</h2>
+    <p id="confirmMsg" class="text-sm text-slate-600"></p>
+    <div class="flex justify-end gap-2">
+      <button type="button" data-cancel class="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-100">Annuler</button>
+      <button type="button" id="confirmOk" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold">Confirmer</button>
     </div>
   </div>
+</div>
 
-  <!-- Emplacement bas du Tableau -->
-  <div id="boardContainerBottom"></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  <footer class="mt-4 text-center text-xs text-slate-400 no-print">
-    Synchronisation Cloud active en temps réel entre appareils. Impression optimisée pour format A4 Paysage.
-  </footer>
+const firebaseConfig = {
+  apiKey: "AIzaSyAqN-dZCLgQrerJONGw4bFcA6crJsLBOlo",
+  authDomain: "plan-classe-college.firebaseapp.com",
+  projectId: "plan-classe-college",
+  storageBucket: "plan-classe-college.firebasestorage.app",
+  messagingSenderId: "903323821070",
+  appId: "1:903323821070:web:f2269972c1066b9eaac85f",
+  measurementId: "G-1R2HR5DPKY"
+};
+let db = null;
+try { db = getFirestore(initializeApp(firebaseConfig)); } catch (e) { console.error("Erreur d'init Firebase :", e); }
 
-  <!-- Script Firebase et logique applicative -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const $ = id => document.getElementById(id);
+const DISABLED = "__DISABLED__", NEW = "__NEW__", DEFAULT_ID = "plan_principal";
+const ls = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAqN-dZCLgQrerJONGw4bFcA6crJsLBOlo",
-      authDomain: "plan-classe-college.firebaseapp.com",
-      projectId: "plan-classe-college",
-      storageBucket: "plan-classe-college.firebasestorage.app",
-      messagingSenderId: "903323821070",
-      appId: "1:903323821070:web:f2269972c1066b9eaac85f",
-      measurementId: "G-1R2HR5DPKY"
+let currentTeacher = (ls.get("plan_classe_teacher") || "").trim();
+let isEditing = false, isViewInverted = true;
+let classes = [], selectedClassId = null, classLoaded = false, classMissing = false;
+let className = "", layoutData = defaultLayout(), unsubClass = null, renameTimer = null, editingSeat = null, lastSeen = "";
+
+const classSelect = $("classSelect"), nameInput = $("classNameInput"), editBtn = $("editModeBtn"), badge = $("modeBadge");
+const gridContainer = $("gridContainer"), syncStatus = $("syncStatus"), lastAuthorInfo = $("lastAuthorInfo");
+
+function defaultLayout() { return Array.from({ length: 5 }, () => ["", "", DISABLED, "", "", ""]); }
+function normalizeLayout(p) {
+  if (!Array.isArray(p) || !p.length || !p.every(Array.isArray)) return null;
+  const w = Math.max(1, ...p.map(r => r.length));
+  return p.map(r => Array.from({ length: w }, (_, i) => r[i] ?? ""));
+}
+function getCellData(cell) {
+  if (cell && typeof cell === "object") return { name: cell.name || "", photo: cell.photo || "" };
+  return { name: cell === DISABLED ? "" : (cell || ""), photo: "" };
+}
+function safePhoto(v) { v = (v || "").trim(); return /^(https?:\/\/|data:image\/)/i.test(v) ? v : ""; }
+const hasStudent = cell => cell !== DISABLED && getCellData(cell).name.trim() !== "";
+
+let toastTimer;
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.remove("hidden"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("hidden"), 4500); }
+
+/* ---------- Modales ---------- */
+const showModal = m => { m.classList.remove("hidden"); m.classList.add("flex"); };
+const hideModal = m => { m.classList.add("hidden"); m.classList.remove("flex"); };
+document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.querySelector("[data-cancel]")?.click(); }));
+document.addEventListener("keydown", e => { if (e.key === "Escape") [...document.querySelectorAll(".modal.flex")].pop()?.querySelector("[data-cancel]")?.click(); });
+
+function askConfirm(msg, okLabel = "Confirmer") {
+  return new Promise(res => {
+    const m = $("confirmModal"), ok = $("confirmOk");
+    $("confirmMsg").textContent = msg; ok.textContent = okLabel; showModal(m);
+    const done = v => { ok.onclick = null; m.querySelector("[data-cancel]").onclick = null; hideModal(m); res(v); };
+    ok.onclick = () => done(true);
+    m.querySelector("[data-cancel]").onclick = () => done(false);
+  });
+}
+function askText(title, label, initial, validate) {
+  return new Promise(res => {
+    const m = $("textModal"), form = $("textForm"), inp = $("textInput"), err = $("textError");
+    $("textTitle").textContent = title; $("textLabel").textContent = label;
+    inp.value = initial || ""; err.classList.add("hidden"); showModal(m); setTimeout(() => inp.focus(), 0);
+    const done = v => { form.onsubmit = null; m.querySelector("[data-cancel]").onclick = null; hideModal(m); res(v); };
+    form.onsubmit = e => {
+      e.preventDefault();
+      const v = inp.value.trim(), msg = validate(v);
+      if (msg) { err.textContent = msg; err.classList.remove("hidden"); return; }
+      done(v);
     };
+    m.querySelector("[data-cancel]").onclick = () => done(null);
+  });
+}
+async function ensureTeacher() {
+  if (currentTeacher) return currentTeacher;
+  const v = await askText("👋 Qui êtes-vous ?", "Votre nom et prénom (pour signer vos modifications)", "", s => s ? "" : "Merci d'indiquer votre nom.");
+  if (v) { currentTeacher = v; ls.set("plan_classe_teacher", v); updateModeUI(); }
+  return v;
+}
 
-    let app, db, docRef;
-    try {
-      app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-      docRef = doc(db, "classes", "plan_principal");
-    } catch (e) {
-      console.error("Erreur d'init Firebase :", e);
+/* ---------- Mode consultation / édition ---------- */
+function updateModeUI() {
+  document.body.classList.toggle("editing", isEditing);
+  badge.textContent = isEditing ? "✏️ Mode Édition (modifications enregistrées en direct)" : "🔒 Mode Consultation (Verrouillé)";
+  badge.className = "px-3 py-2 rounded-lg text-sm font-bold border " + (isEditing ? "bg-amber-50 text-amber-700 border-amber-300" : "bg-slate-100 text-slate-600 border-slate-300");
+  editBtn.textContent = isEditing ? "🔒 Enregistrer & Verrouiller" : "✏️ Passer en mode édition";
+  editBtn.className = "px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition disabled:opacity-40 text-white " + (isEditing ? "bg-yellow-500 hover:bg-yellow-600" : "bg-emerald-600 hover:bg-emerald-700");
+  editBtn.disabled = !selectedClassId || !classLoaded;
+  nameInput.classList.toggle("hidden", !isEditing);
+  $("teacherBtn").textContent = currentTeacher ? `👤 ${currentTeacher} · changer` : "👤 Non identifié (requis pour éditer)";
+}
+async function lockEditing(silent) {
+  await flushRename();
+  isEditing = false; editingSeat = null; hideModal($("studentModal"));
+  updateModeUI(); render();
+  if (!silent) toast("✅ Modifications enregistrées — plan verrouillé");
+}
+editBtn.addEventListener("click", async () => {
+  if (!selectedClassId || !classLoaded) return;
+  if (isEditing) return lockEditing();
+  if (!(await ensureTeacher())) return;
+  isEditing = true; updateModeUI(); render();
+});
+$("teacherBtn").addEventListener("click", async () => {
+  const v = await askText("👤 Votre identité", "Nom et prénom", currentTeacher, s => s ? "" : "Merci d'indiquer votre nom.");
+  if (v) { currentTeacher = v; ls.set("plan_classe_teacher", v); updateModeUI(); }
+});
+$("toggleViewBtn").addEventListener("click", () => { isViewInverted = !isViewInverted; render(); });
+
+/* ---------- Firestore : liste des classes ---------- */
+function renderClassSelect() {
+  classSelect.innerHTML = "";
+  const add = (v, t, dis) => { const o = document.createElement("option"); o.value = v; o.textContent = t; o.disabled = !!dis; classSelect.appendChild(o); };
+  if (!selectedClassId) add("", "— Choisir une classe —", true);
+  classes.forEach(c => add(c.id, c.name));
+  add("", "──────────", true);
+  add(NEW, "➕ Ajouter une nouvelle classe...");
+  classSelect.value = selectedClassId || "";
+}
+if (db) {
+  onSnapshot(collection(db, "classes"), snap => {
+    classes = snap.docs.map(d => ({ id: d.id, name: (d.data().className || "").trim() || d.id }));
+    classes.sort((a, b) => a.name.localeCompare(b.name, "fr", { numeric: true, sensitivity: "base" }));
+    if (!selectedClassId && classes.length) {
+      const saved = ls.get("plan_classe_selected");
+      selectClass((classes.find(c => c.id === saved) || classes.find(c => c.id === DEFAULT_ID) || classes[0]).id);
     }
+    renderClassSelect(); render();
+  }, err => { console.error(err); syncStatus.textContent = "⚠️ Mode local (Erreur réseau)"; });
+} else { syncStatus.textContent = "⚠️ Firebase indisponible"; }
 
-    // Gestion du nom du professeur (mémorisé dans le navigateur)
-    let currentTeacher = localStorage.getItem("plan_classe_teacher");
-    while (!currentTeacher || currentTeacher.trim() === "") {
-      currentTeacher = prompt("Veuillez entrer votre Nom et Prénom pour identifier vos modifications sur le plan :");
-      if (currentTeacher) {
-        currentTeacher = currentTeacher.trim();
-        localStorage.setItem("plan_classe_teacher", currentTeacher);
+classSelect.addEventListener("change", async () => {
+  const v = classSelect.value;
+  if (v === NEW) { classSelect.value = selectedClassId || ""; return createClassFlow(); }
+  selectClass(v);
+});
+
+async function createClassFlow() {
+  if (!db) return;
+  const name = await askText("➕ Nouvelle classe", "Nom de la classe (ex : 5ème B)", "", s => !s ? "Merci d'indiquer un nom."
+    : classes.some(c => c.name.toLowerCase() === s.toLowerCase()) ? "Une classe porte déjà ce nom." : "");
+  if (!name) return;
+  if (!(await ensureTeacher())) return;
+  const slug = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "classe";
+  const id = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+  setDoc(doc(db, "classes", id), { className: name, layoutJson: JSON.stringify(defaultLayout()), lastTeacher: currentTeacher, updatedAt: new Date().toISOString() })
+    .catch(e => { console.error(e); toast("⚠️ Impossible de créer la classe (erreur cloud)."); });
+  classes.push({ id, name });
+  await selectClass(id);
+  toast(`Classe « ${name} » créée : tous vos collègues y ont accès.`);
+}
+
+/* ---------- Firestore : document de la classe sélectionnée ---------- */
+async function selectClass(id) {
+  if (!db || !id || (id === selectedClassId && unsubClass)) return;
+  if (isEditing) { await lockEditing(true); toast("🔒 Changement de classe : plan verrouillé"); }
+  unsubClass?.();
+  selectedClassId = id; ls.set("plan_classe_selected", id);
+  classLoaded = false; classMissing = false; lastSeen = ""; layoutData = defaultLayout();
+  className = classes.find(c => c.id === id)?.name || "";
+  nameInput.value = className; $("printTitle").textContent = className;
+  lastAuthorInfo.textContent = "Dernière modif : -"; syncStatus.textContent = "Chargement de la classe...";
+  renderClassSelect(); updateModeUI(); render();
+  unsubClass = onSnapshot(doc(db, "classes", id), snap => {
+    if (id !== selectedClassId) return;
+    if (!snap.exists()) { classLoaded = false; classMissing = true; updateModeUI(); render(); return; }
+    const data = snap.data();
+    if (data.layoutJson) { try { layoutData = normalizeLayout(JSON.parse(data.layoutJson)) || layoutData; } catch (e) { console.error(e); } }
+    if (data.className) { className = data.className; $("printTitle").textContent = className; if (document.activeElement !== nameInput) nameInput.value = className; }
+    if (data.lastTeacher && data.updatedAt) {
+      const d = new Date(data.updatedAt);
+      lastAuthorInfo.textContent = `Dernière modif : ${data.lastTeacher} le ${d.toLocaleDateString()} à ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      if (isEditing && classLoaded && !snap.metadata.hasPendingWrites && data.updatedAt !== lastSeen && data.lastTeacher !== currentTeacher)
+        toast(`⚠️ ${data.lastTeacher} vient de modifier cette classe : le plan a été mis à jour.`);
+      lastSeen = data.updatedAt;
+    }
+    classLoaded = true;
+    if (editingSeat && layoutData[editingSeat.r]?.[editingSeat.c] === undefined) { editingSeat = null; hideModal($("studentModal")); }
+    syncStatus.textContent = "☁️ À jour (Temps réel)";
+    updateModeUI(); render();
+  }, err => { console.error(err); syncStatus.textContent = "⚠️ Mode local (Erreur réseau)"; });
+}
+
+async function saveLayout() {
+  if (!isEditing || !db || !selectedClassId) return;
+  const id = selectedClassId;
+  try {
+    syncStatus.textContent = "Synchronisation...";
+    await setDoc(doc(db, "classes", id), { layoutJson: JSON.stringify(layoutData), lastTeacher: currentTeacher, updatedAt: new Date().toISOString() }, { merge: true });
+    if (id === selectedClassId) syncStatus.textContent = "☁️ Synchronisé";
+  } catch (e) { console.error("Erreur de sauvegarde :", e); syncStatus.textContent = "⚠️ Erreur cloud"; }
+}
+function mutate(fn) { if (!isEditing) return; fn(); render(); saveLayout(); }
+
+/* Renommage (mode édition uniquement) */
+async function flushRename() {
+  if (renameTimer === null) return;
+  clearTimeout(renameTimer); renameTimer = null;
+  const n = nameInput.value.trim();
+  if (!n || !db || !selectedClassId) { nameInput.value = className; return; }
+  try { await setDoc(doc(db, "classes", selectedClassId), { className: n, lastTeacher: currentTeacher, updatedAt: new Date().toISOString() }, { merge: true }); }
+  catch (e) { console.error(e); syncStatus.textContent = "⚠️ Erreur cloud"; }
+}
+nameInput.addEventListener("input", () => {
+  if (!isEditing) return;
+  $("printTitle").textContent = nameInput.value;
+  clearTimeout(renameTimer); renameTimer = setTimeout(flushRename, 700);
+});
+nameInput.addEventListener("blur", flushRename);
+
+/* ---------- Lignes / colonnes ---------- */
+const addRow = i => mutate(() => layoutData.splice(i + 1, 0, Array(layoutData[0].length).fill("")));
+const addCol = i => mutate(() => layoutData.forEach(row => row.splice(i + 1, 0, "")));
+async function delLine(kind, i) {
+  if (!isEditing) return;
+  const cells = kind === "row" ? layoutData[i] : layoutData.map(r => r[i]);
+  if ((kind === "row" ? layoutData.length : layoutData[0].length) <= 1) return toast("Il faut garder au moins une " + (kind === "row" ? "rangée." : "colonne."));
+  const n = cells.filter(hasStudent).length;
+  if (n && !(await askConfirm(`${kind === "row" ? "La rangée" : "La colonne"} ${i + 1} contient ${n} élève(s). La supprimer les retirera du plan.`, "Supprimer"))) return;
+  mutate(() => kind === "row" ? layoutData.splice(i, 1) : layoutData.forEach(r => r.splice(i, 1)));
+}
+
+/* ---------- Modale élève ---------- */
+function openStudentModal(r, c) {
+  const cell = layoutData[r]?.[c]; if (cell === undefined || !isEditing) return;
+  editingSeat = { r, c };
+  const off = cell === DISABLED, d = getCellData(cell);
+  $("seatLabel").textContent = `Rangée ${r + 1} · Colonne ${c + 1}`;
+  $("studentName").value = d.name; $("studentPhoto").value = d.photo; $("photoError").classList.add("hidden");
+  $("studentFields").classList.toggle("hidden", off); $("disabledNotice").classList.toggle("hidden", !off);
+  $("studentSaveBtn").classList.toggle("hidden", off);
+  $("clearBtn").classList.toggle("hidden", off || !(d.name || d.photo));
+  $("toggleDeskBtn").textContent = off ? "✅ Réactiver ce bureau" : "🚫 Désactiver ce bureau";
+  showModal($("studentModal")); if (!off) setTimeout(() => $("studentName").focus(), 0);
+}
+function closeStudentModal() { editingSeat = null; hideModal($("studentModal")); }
+document.querySelectorAll("#studentModal [data-cancel]").forEach(b => b.addEventListener("click", closeStudentModal));
+$("studentForm").addEventListener("submit", e => {
+  e.preventDefault(); if (!editingSeat) return;
+  const { r, c } = editingSeat, raw = $("studentPhoto").value.trim(), photo = safePhoto(raw);
+  if (raw && !photo) return $("photoError").classList.remove("hidden");
+  const name = $("studentName").value.trim();
+  closeStudentModal();
+  mutate(() => { layoutData[r][c] = (name || photo) ? { name, photo } : ""; });
+});
+$("clearBtn").addEventListener("click", () => { if (!editingSeat) return; const { r, c } = editingSeat; closeStudentModal(); mutate(() => { layoutData[r][c] = ""; }); });
+$("toggleDeskBtn").addEventListener("click", async () => {
+  if (!editingSeat) return;
+  const { r, c } = editingSeat, cell = layoutData[r]?.[c], d = getCellData(cell);
+  if (cell !== DISABLED && d.name.trim() && !(await askConfirm(`Désactiver ce bureau retirera « ${d.name} » de cette place.`, "Désactiver"))) return;
+  closeStudentModal(); mutate(() => { layoutData[r][c] = cell === DISABLED ? "" : DISABLED; });
+});
+
+/* ---------- Rendu ---------- */
+function placeholder(msg) {
+  const p = document.createElement("p");
+  p.className = "text-center text-slate-500 py-16 text-sm"; p.textContent = msg; gridContainer.appendChild(p);
+}
+function silhouette() { const d = document.createElement("div"); d.className = "student-photo flex items-center justify-center text-[10px] text-slate-400 font-bold"; d.textContent = "👤"; return d; }
+function mk(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+
+function render() {
+  gridContainer.innerHTML = ""; $("boardContainer").innerHTML = ""; $("boardContainerBottom").innerHTML = "";
+  if (!selectedClassId) return placeholder(classes.length ? "Choisissez une classe dans le menu." : "Aucune classe pour l'instant : utilisez « ➕ Ajouter une nouvelle classe... » dans le menu.");
+  if (!classLoaded) return placeholder(classMissing ? "Cette classe est introuvable." : "Chargement du plan de classe...");
+
+  const boardHtml = `<div id="board-${isViewInverted ? "bottom" : "top"}" class="board-element print-show bg-slate-800 text-white text-center py-2 rounded-xl text-xs font-bold uppercase tracking-widest shadow-sm">Tableau / Bureau du professeur</div>`;
+  (isViewInverted ? $("boardContainerBottom") : $("boardContainer")).innerHTML = boardHtml;
+
+  const colCount = layoutData[0].length, cols = [];
+  for (let c = 0; c < colCount; c++) cols.push(layoutData.every(row => row[c] === DISABLED) ? "35px" : "minmax(90px, 1fr)");
+  const wrapper = mk("div", "grid gap-2");
+  wrapper.style.gridTemplateColumns = `35px ${cols.join(" ")}`;
+  wrapper.style.setProperty("--print-cols", cols.join(" "));
+
+  const rows = layoutData.map((_, i) => i); if (isViewInverted) rows.reverse();
+
+  if (isEditing) {
+    wrapper.appendChild(mk("div", "col-controls"));
+    for (let c = 0; c < colCount; c++) {
+      const cc = mk("div", "col-controls flex items-center justify-center gap-0.5 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs");
+      cc.innerHTML = `<button type="button" title="Ajouter à gauche" class="text-blue-600 hover:bg-blue-100 px-1 rounded font-bold">+</button><button type="button" title="Supprimer colonne" class="text-red-500 hover:bg-red-100 px-1 rounded font-bold">×</button><button type="button" title="Ajouter à droite" class="text-blue-600 hover:bg-blue-100 px-1 rounded font-bold">+</button>`;
+      const [l, d, r] = cc.querySelectorAll("button");
+      l.onclick = () => addCol(c - 1); r.onclick = () => addCol(c); d.onclick = () => delLine("col", c);
+      wrapper.appendChild(cc);
+    }
+  }
+
+  rows.forEach(r => {
+    if (isEditing) {
+      const rc = mk("div", "row-label flex flex-col items-center justify-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-600");
+      rc.innerHTML = `<span>R${r + 1}</span><button type="button" title="Supprimer ligne" class="text-red-500 hover:bg-red-100 px-1 rounded">×</button><button type="button" title="Ajouter ligne" class="text-blue-600 hover:bg-blue-100 px-1 rounded">+</button>`;
+      const [del, add] = rc.querySelectorAll("button");
+      del.onclick = () => delLine("row", r); add.onclick = () => addRow(r);
+      wrapper.appendChild(rc);
+    } else wrapper.appendChild(mk("div", "row-label flex items-center justify-center font-bold text-xs text-slate-400", `R${r + 1}`));
+
+    layoutData[r].forEach((cell, c) => {
+      const off = cell === DISABLED, d = getCellData(cell), has = !off && d.name.trim() !== "";
+      const seat = mk("div", `seat ${off ? "disabled" : has ? "" : "empty"}`);
+      seat.appendChild(mk("span", "seat-number", `${r + 1}.${c + 1}`));
+      if (isEditing) seat.appendChild(mk("span", "seat-actions text-slate-400", "✏️"));
+      if (off) seat.appendChild(mk("span", "disabled-text text-xs text-slate-400 font-medium", "Désactivé"));
+      else {
+        const url = safePhoto(d.photo);
+        if (url) {
+          const img = mk("img", "student-photo"); img.alt = "Photo"; img.draggable = false; img.referrerPolicy = "no-referrer"; img.src = url;
+          img.onerror = () => img.replaceWith(silhouette()); seat.appendChild(img);
+        } else seat.appendChild(silhouette());
+        seat.appendChild(mk("span", "seat-name", d.name || "Place libre"));
       }
-    }
-
-    let isEditing = true;
-    let isViewInverted = true;
-    let className = "Classe de 4ème";
-    let isRemoteUpdate = false;
-
-    let layoutData = [
-      ["", "", "__DISABLED__", "", "", ""],
-      ["", "", "__DISABLED__", "", "", ""],
-      ["", "", "__DISABLED__", "", "", ""],
-      ["", "", "__DISABLED__", "", "", ""],
-      ["", "", "__DISABLED__", "", "", ""]
-    ];
-
-    const editBtn = document.getElementById("editModeBtn");
-    const toggleViewBtn = document.getElementById("toggleViewBtn");
-    const nameInput = document.getElementById("classNameInput");
-    const printTitle = document.getElementById("printTitle");
-    const gridContainer = document.getElementById("gridContainer");
-    const boardContainer = document.getElementById("boardContainer");
-    const boardContainerBottom = document.getElementById("boardContainerBottom");
-    const syncStatus = document.getElementById("syncStatus");
-    const lastAuthorInfo = document.getElementById("lastAuthorInfo");
-
-    render();
-
-    nameInput.addEventListener("input", (e) => {
-      className = e.target.value;
-      printTitle.textContent = className;
-      saveToCloud();
-    });
-
-    editBtn.addEventListener("click", () => {
-      isEditing = !isEditing;
-      editBtn.textContent = isEditing ? "Mode Édition : Actif" : "Mode Consultation";
-      editBtn.className = isEditing 
-        ? "bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition" 
-        : "bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition";
-      render();
-    });
-
-    toggleViewBtn.addEventListener("click", () => {
-      isViewInverted = !isViewInverted;
-      render();
-    });
-
-    async function saveToCloud() {
-      if (isRemoteUpdate || !docRef) return;
-      try {
-        syncStatus.textContent = "Synchronisation...";
-        const now = new Date().toISOString();
-        await setDoc(docRef, {
-          layoutJson: JSON.stringify(layoutData),
-          className: className,
-          lastTeacher: currentTeacher,
-          updatedAt: now
-        });
-        syncStatus.textContent = "☁️ Synchronisé";
-        lastAuthorInfo.textContent = `Modifié par ${currentTeacher} (à l'instant)`;
-      } catch (error) {
-        console.error("Erreur de sauvegarde :", error);
-        syncStatus.textContent = "⚠️ Erreur cloud";
-      }
-    }
-
-    if (docRef) {
-      onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          isRemoteUpdate = true;
-          if (data.layoutJson) {
-            try {
-              let parsed = JSON.parse(data.layoutJson);
-              layoutData = parsed.map(row => row.map(cell => {
-                if (typeof cell === 'string') return cell;
-                return cell;
-              }));
-            } catch (err) {
-              console.error("Erreur parsing JSON layout", err);
-            }
-          }
-          if (data.className) {
-            className = data.className;
-            nameInput.value = className;
-            printTitle.textContent = className;
-          }
-          if (data.lastTeacher && data.updatedAt) {
-            const dateObj = new Date(data.updatedAt);
-            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const dateStr = dateObj.toLocaleDateString();
-            lastAuthorInfo.textContent = `Dernière modif : ${data.lastTeacher} le ${dateStr} à ${timeStr}`;
-          }
-          render();
-          isRemoteUpdate = false;
-          syncStatus.textContent = "☁️ À jour (Temps réel)";
-        } else {
-          saveToCloud();
-        }
-      }, (error) => {
-        console.error("Erreur snapshot :", error);
-        syncStatus.textContent = "⚠️ Mode local (Erreur réseau)";
-      });
-    }
-
-    function addRow(index) {
-      const colCount = layoutData[0] ? layoutData[0].length : 6;
-      layoutData.splice(index + 1, 0, Array(colCount).fill(""));
-      render();
-      saveToCloud();
-    }
-
-    function deleteRow(index) {
-      if (layoutData.length > 1) {
-        layoutData.splice(index, 1);
-        render();
-        saveToCloud();
-      }
-    }
-
-    function addCol(index) {
-      layoutData.forEach(row => row.splice(index + 1, 0, ""));
-      render();
-      saveToCloud();
-    }
-
-    function deleteCol(index) {
-      if (layoutData[0].length > 1) {
-        layoutData.forEach(row => row.splice(index, 1));
-        render();
-        saveToCloud();
-      }
-    }
-
-    function getCellData(cell) {
-      if (cell === "__DISABLED__") return { disabled: true };
-      if (typeof cell === "object" && cell !== null) return { name: cell.name || "", photo: cell.photo || "" };
-      return { name: cell || "", photo: "" };
-    }
-
-    function render() {
-      if (!gridContainer) return;
-      gridContainer.innerHTML = "";
-      
-      boardContainer.innerHTML = "";
-      boardContainerBottom.innerHTML = "";
-
-      const boardHtml = `<div id="board-${isViewInverted ? 'bottom' : 'top'}" class="board-element print-show bg-slate-800 text-white text-center py-2 rounded-xl text-xs font-bold uppercase tracking-widest shadow-sm">Tableau / Bureau du professeur</div>`;
-
-      if (isViewInverted) {
-        boardContainerBottom.innerHTML = boardHtml;
-      } else {
-        boardContainer.innerHTML = boardHtml;
-      }
-
-      const colCount = layoutData[0] && layoutData[0].length ? layoutData[0].length : 6;
-      
-      let colTemplates = [];
-      for (let c = 0; c < colCount; c++) {
-        let isAllDisabled = true;
-        for (let r = 0; r < layoutData.length; r++) {
-          if (layoutData[r][c] !== "__DISABLED__") {
-            isAllDisabled = false;
-            break;
-          }
-        }
-        if (isAllDisabled) {
-          colTemplates.push("35px");
-        } else {
-          colTemplates.push("minmax(90px, 1fr)");
-        }
-      }
-
-      const wrapper = document.createElement("div");
-      wrapper.className = "grid gap-2";
-      wrapper.style.gridTemplateColumns = `35px ${colTemplates.join(" ")}`;
-      wrapper.style.setProperty('--print-cols', colTemplates.join(" "));
-
-      let rowIndices = layoutData.map((_, index) => index);
-      if (isViewInverted) {
-        rowIndices.reverse();
-      }
-
       if (isEditing) {
-        const corner = document.createElement("div");
-        corner.className = "col-controls";
-        wrapper.appendChild(corner);
-
-        for (let c = 0; c < colCount; c++) {
-          const colControl = document.createElement("div");
-          colControl.className = "col-controls flex items-center justify-center gap-0.5 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs";
-          colControl.innerHTML = `
-            <button type="button" title="Ajouter à gauche" class="add-col-left text-blue-600 hover:bg-blue-100 px-1 rounded font-bold">+</button>
-            <button type="button" title="Supprimer colonne" class="del-col text-red-500 hover:bg-red-100 px-1 rounded font-bold">×</button>
-            <button type="button" title="Ajouter à droite" class="add-col-right text-blue-600 hover:bg-blue-100 px-1 rounded font-bold">+</button>
-          `;
-          
-          colControl.querySelector(".add-col-left").addEventListener("click", () => addCol(c - 1));
-          colControl.querySelector(".add-col-right").addEventListener("click", () => addCol(c));
-          colControl.querySelector(".del-col").addEventListener("click", () => {
-            if (confirm(`Supprimer entièrement la colonne ${c + 1} ?`)) deleteCol(c);
-          });
-
-          wrapper.appendChild(colControl);
+        seat.addEventListener("click", () => openStudentModal(r, c));
+        if (!off) {
+          seat.draggable = true;
+          seat.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", JSON.stringify({ r, c })); seat.classList.add("dragging"); });
+          seat.addEventListener("dragend", () => seat.classList.remove("dragging"));
         }
-      }
-
-      rowIndices.forEach(r => {
-        const row = layoutData[r] || [];
-
-        if (isEditing) {
-          const rowControl = document.createElement("div");
-          rowControl.className = "row-label flex flex-col items-center justify-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-600";
-          rowControl.innerHTML = `
-            <span>R${r+1}</span>
-            <button type="button" title="Supprimer ligne" class="del-row text-red-500 hover:bg-red-100 px-1 rounded">×</button>
-            <button type="button" title="Ajouter ligne" class="add-row text-blue-600 hover:bg-blue-100 px-1 rounded">+</button>
-          `;
-          rowControl.querySelector(".del-row").addEventListener("click", () => deleteRow(r));
-          rowControl.querySelector(".add-row").addEventListener("click", () => addRow(r));
-          wrapper.appendChild(rowControl);
-        } else {
-          const rowLabel = document.createElement("div");
-          rowLabel.className = "row-label flex items-center justify-center font-bold text-xs text-slate-400";
-          rowLabel.textContent = `R${r+1}`;
-          wrapper.appendChild(rowLabel);
-        }
-
-        row.forEach((cell, c) => {
-          const seat = document.createElement("div");
-          const cellData = getCellData(cell);
-          const isDisabled = cell === "__DISABLED__";
-          const hasStudent = cellData.name && cellData.name.trim() !== "";
-          
-          seat.className = `seat ${isDisabled ? 'disabled' : (hasStudent ? '' : 'empty')}`;
-          
-          if (isDisabled) {
-            seat.innerHTML = `
-              <span class="seat-number">${r + 1}.${c + 1}</span>
-              <span class="disabled-text text-xs text-slate-400 font-medium">Désactivé</span>
-              <span class="seat-actions" title="Réactiver ce bureau">✅</span>
-            `;
-          } else {
-            let photoHtml = cellData.photo 
-              ? `<img src="${cellData.photo}" class="student-photo" alt="Photo">` 
-              : `<div class="student-photo flex items-center justify-center text-[10px] text-slate-400 font-bold">👤</div>`;
-
-            seat.innerHTML = `
-              <span class="seat-number">${r + 1}.${c + 1}</span>
-              <span class="seat-actions" title="Désactiver ce bureau">⚙️</span>
-              ${photoHtml}
-              <span class="seat-name">${cellData.name || 'Place libre'}</span>
-            `;
-          }
-
-          if (isEditing) {
-            const actionBtn = seat.querySelector(".seat-actions");
-            if (actionBtn) {
-              actionBtn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                layoutData[r][c] = isDisabled ? "" : "__DISABLED__";
-                render();
-                saveToCloud();
-              });
-            }
-
-            if (isDisabled) {
-              seat.addEventListener("click", () => {
-                layoutData[r][c] = "";
-                render();
-                saveToCloud();
-              });
-            } else {
-              seat.setAttribute("draggable", "true");
-
-              seat.addEventListener("dragstart", (e) => {
-                e.dataTransfer.setData("text/plain", JSON.stringify({ r, c }));
-                seat.classList.add("dragging");
-              });
-
-              seat.addEventListener("dragend", () => {
-                seat.classList.remove("dragging");
-              });
-
-              seat.addEventListener("click", () => {
-                const actionChoice = prompt(
-                  `Gestion de la place (${r+1}.${c+1})\n\n1. Entrez le nom/prénom de l'élève\n2. Tapez 'PHOTO' pour modifier l'URL de sa photo`, 
-                  cellData.name
-                );
-
-                if (actionChoice === null) return;
-
-                if (actionChoice.trim() === "PHOTO") {
-                  const photoUrl = prompt("Collez l'URL de la photo de l'élève (ou laissez vide pour supprimer) :", cellData.photo);
-                  if (photoUrl !== null) {
-                    layoutData[r][c] = { name: cellData.name, photo: photoUrl.trim() };
-                    render();
-                    saveToCloud();
-                  }
-                } else {
-                  layoutData[r][c] = { name: actionChoice.trim(), photo: cellData.photo };
-                  render();
-                  saveToCloud();
-                }
-              });
-            }
-
-            seat.addEventListener("dragover", (e) => {
-              e.preventDefault();
-              if (!isDisabled) seat.classList.add("drag-over");
-            });
-
-            seat.addEventListener("dragleave", () => {
-              seat.classList.remove("drag-over");
-            });
-
-            seat.addEventListener("drop", (e) => {
-              e.preventDefault();
-              seat.classList.remove("drag-over");
-              
-              if (layoutData[r][c] === "__DISABLED__") return;
-
-              const sourceData = JSON.parse(e.dataTransfer.getData("text/plain"));
-              
-              const temp = layoutData[r][c];
-              layoutData[r][c] = layoutData[sourceData.r][sourceData.c];
-              layoutData[sourceData.r][sourceData.c] = temp;
-
-              render();
-              saveToCloud();
-            });
-          }
-
-          wrapper.appendChild(seat);
+        seat.addEventListener("dragover", e => { e.preventDefault(); if (!off) seat.classList.add("drag-over"); });
+        seat.addEventListener("dragleave", () => seat.classList.remove("drag-over"));
+        seat.addEventListener("drop", e => {
+          e.preventDefault(); seat.classList.remove("drag-over");
+          let s; try { s = JSON.parse(e.dataTransfer.getData("text/plain")); } catch { return; }
+          if (!isEditing || !s || layoutData[r][c] === DISABLED || (s.r === r && s.c === c)) return;
+          const from = layoutData[s.r]?.[s.c]; if (from === undefined || from === DISABLED) return;
+          mutate(() => { layoutData[s.r][s.c] = layoutData[r][c]; layoutData[r][c] = from; });
         });
-      });
+      }
+      wrapper.appendChild(seat);
+    });
+  });
+  gridContainer.appendChild(wrapper);
+}
 
-      gridContainer.appendChild(wrapper);
-    }
-  </script>
+renderClassSelect(); updateModeUI(); render();
+</script>
 </body>
 </html>
