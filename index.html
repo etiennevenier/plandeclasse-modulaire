@@ -7,7 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   body { background:#f8fafc; color:#1e293b; font-family:system-ui,-apple-system,sans-serif; }
-  .seat { min-height:90px; border:2px solid #cbd5e1; border-radius:12px; background:white; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:6px; text-align:center; position:relative; transition:all .15s ease; user-select:none; overflow:hidden; cursor:default; }
+  .seat { min-height:110px; border:2px solid #cbd5e1; border-radius:12px; background:white; display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:3px; padding:4px; text-align:center; position:relative; transition:all .15s ease; user-select:none; overflow:hidden; cursor:default; }
   body.editing .seat { cursor:pointer; }
   body.editing .seat:hover { border-color:#3b82f6; box-shadow:0 4px 6px -1px rgb(0 0 0/.1); }
   .seat.dragging { opacity:.4; border-style:dashed; }
@@ -16,10 +16,10 @@
   .seat.empty .seat-name { color:#94a3b8; font-weight:400; }
   .seat.disabled { background:#f1f5f9; border-style:dashed; }
   body.editing .seat.disabled:hover { background:#e2e8f0; }
-  .seat-number { position:absolute; top:3px; left:5px; font-size:8px; color:#94a3b8; font-weight:bold; }
+  .seat-number { position:absolute; top:3px; left:5px; font-size:8px; color:#94a3b8; font-weight:bold; z-index:2; }
   .seat-actions { position:absolute; top:2px; right:4px; font-size:10px; display:none; }
   body.editing .seat:hover .seat-actions { display:block; }
-  .student-photo { width:30px; height:30px; border-radius:9999px; object-fit:cover; border:1px solid #cbd5e1; background:#e2e8f0; }
+  .student-photo { width:68px; height:68px; margin-top:12px; border-radius:8px; object-fit:cover; border:1px solid #cbd5e1; background:#e2e8f0; }
 
   @media print {
     @page { size:A4 landscape; margin:8mm; }
@@ -27,15 +27,16 @@
     body { background:white !important; font-size:10px; display:flex !important; flex-direction:column; width:100% !important; max-width:none !important; height:192mm !important; margin:0 !important; padding:0 !important; box-sizing:border-box; }
     .no-print { display:none !important; }
     .print-only { display:block !important; flex:none; }
-    .row-label, .col-controls, .disabled-text { display:none !important; }
-    #gridContainer > div { grid-template-columns:var(--print-cols) !important; flex:1 1 auto; grid-auto-rows:1fr; gap:6px !important; width:100%; min-height:0; box-sizing:border-box; }
+    .row-label, .col-controls, .disabled-text, .seat-number { display:none !important; }
+    .row-label { width:0 !important; margin:0 !important; padding:0 !important; }
+    #gridContainer > div { grid-template-columns:var(--print-cols) !important; flex:1 1 auto; grid-auto-rows:min-content; align-content:start; gap:6px !important; width:100%; min-height:0; box-sizing:border-box; }
     .overflow-x-auto { overflow:visible !important; width:100% !important; padding:0 !important; border:none !important; box-shadow:none !important; border-radius:0 !important; margin:6px 0 !important; box-sizing:border-box; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
     #gridContainer { width:100% !important; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
     #boardContainer, #boardContainerBottom { flex:none; }
-    .seat { border:1px solid #334155 !important; min-height:55px; min-width:0; padding:3px; break-inside:avoid; page-break-inside:avoid; }
-    .seat.disabled { border:none !important; background:transparent !important; min-height:30px; }
-    .seat-name { font-size:11px; }
-    .student-photo { width:26px; height:26px; }
+    .seat { border:1px solid #94a3b8 !important; min-height:75px !important; min-width:0; padding:2px !important; margin:0 !important; gap:2px !important; justify-content:center !important; overflow:hidden; break-inside:avoid; page-break-inside:avoid; }
+    .seat.disabled { border:none !important; background:transparent !important; min-height:30px !important; }
+    .seat-name { font-size:9.5px !important; font-weight:800 !important; line-height:1 !important; margin-top:2px !important; }
+    .student-photo { width:68px !important; height:68px !important; margin-top:0 !important; border-radius:6px !important; }
     .board-element { background:#334155 !important; color:white !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; padding:6px !important; }
     #boardTop.print-show { margin-bottom:10px !important; margin-top:0 !important; }
     #boardBottom.print-show { margin-top:10px !important; margin-bottom:0 !important; }
